@@ -1584,6 +1584,139 @@ bluetooth_verify_address (const char *bdaddr)
 }
 
 static int
+is_ippusb_driver_installed ()
+{
+	return system ("ippusbxd -h") == 0;
+}
+
+static int
+is_ippusb_interface(const struct libusb_interface_descriptor *interf)
+{
+  return interf->bInterfaceClass == 0x07 &&
+         interf->bInterfaceSubClass == 0x01 &&
+         interf->bInterfaceProtocol == 0x04;
+}
+
+static int
+count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
+{
+  int count = 0;
+
+  for (uint8_t interface_i = 0;
+       interface_i < config->bNumInterfaces;
+       interface_i++)
+    {
+      const struct libusb_interface *interface = NULL;
+      interface = &config->interface[interface_i];
+
+      for (int alt_i = 0;
+           alt_i < interface->num_altsetting;
+           alt_i++)
+        {
+          const struct libusb_interface_descriptor *alt = NULL;
+          alt = &interface->altsetting[alt_i];
+
+          if (!is_ippusb_interface (alt))
+            continue;
+
+          count++;
+          break;
+        }
+    }
+
+  return count;
+}
+
+static int
+is_ippusb_printer (struct udev_device *dev,
+                   const char *usb_serial)
+{
+  const char *idVendorStr, *idProductStr;
+  unsigned long idVendor, idProduct;
+  char *end;
+  int conf_i = 0, numdevs = 0, dev_i;
+  libusb_device **list;
+  struct libusb_device_descriptor devdesc;
+
+  char libusbserial[1024];
+  int is_ippusb = 0;
+
+  idVendorStr = udev_device_get_sysattr_value (dev, "idVendor");
+  idProductStr = udev_device_get_sysattr_value (dev, "idProduct");
+
+  if (!idVendorStr || !idProductStr)
+    {
+      return 0;
+    }
+
+  idVendor = strtoul (idVendorStr, &end, 16);
+  if (end == idVendorStr)
+    {
+      return 0;
+    }
+
+  idProduct = strtoul (idProductStr, &end, 16);
+  if (end == idProductStr)
+    {
+      return 0;
+    }
+
+  libusb_init (NULL);
+  numdevs = libusb_get_device_list(NULL, &list);
+  for (dev_i = 0; dev_i < numdevs; dev_i ++)
+    {
+      struct libusb_device_handle *handle = NULL;
+      struct libusb_device *device = list[dev_i];
+
+      if (libusb_get_device_descriptor(device, &devdesc) < 0)
+        continue;
+
+      if (!devdesc.bNumConfigurations ||
+          !devdesc.idVendor ||
+	  !devdesc.idProduct)
+        continue;
+
+      if (devdesc.idVendor != idVendor ||
+	  devdesc.idProduct != idProduct)
+        continue;
+
+      if (libusb_open(device, &handle) < 0)
+        continue;
+
+      if (usb_serial &&
+          (libusb_get_string_descriptor_ascii(handle,
+                                              devdesc.iSerialNumber,
+                                              (unsigned char *)libusbserial,
+                                              sizeof(libusbserial))) > 0 &&
+          strcmp(usb_serial, libusbserial) != 0)
+        {
+          libusb_close (handle);
+          continue;
+        }
+
+      for (conf_i = 0; !is_ippusb && conf_i < devdesc.bNumConfigurations; conf_i ++)
+        {
+          struct libusb_config_descriptor *conf = NULL;
+          if (libusb_get_config_descriptor(device, conf_i, &conf) < 0)
+            continue;
+
+	  if (count_ippoverusb_interfaces(conf) > 0)
+            is_ippusb = 1;
+	}
+
+      libusb_close(handle);
+
+      // Our Device has already been searched
+      break;
+    }
+
+  libusb_free_device_list (list, 1);
+  libusb_exit(NULL);
+
+  return is_ippusb;
+}
+
+static int
 do_add (const char *cmd, const char *devaddr)
 {
   struct device_id id;
