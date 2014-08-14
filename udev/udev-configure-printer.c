@@ -1758,6 +1758,15 @@ is_ippusb_printer (struct udev_device *dev,
 }
 
 static int
+find_ippusb_uri (struct udev_device *dev,
+                 const char *usb_serial,
+                 struct device_uris *uris,
+                 struct usb_uri_map *map)
+{
+  return 1;
+}
+
+static int
 do_add (const char *cmd, const char *devaddr)
 {
   struct device_id id;
@@ -1819,6 +1828,7 @@ do_add (const char *cmd, const char *devaddr)
       if (is_ippusb_driver_installed() &&
           is_ippusb_printer(dev, usbserial))
         {
+          find_ippusb_uri (dev, usbserial, &device_uris, map);
         }
       else
         {
