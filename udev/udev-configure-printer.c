@@ -732,27 +732,13 @@ get_ieee1284_id_using_libusb (struct udev_device *dev,
 }
 
 static char *
-device_id_from_devpath (struct udev *udev, const char *devpath,
-			const struct usb_uri_map *map,
-			struct device_id *id,
-			char *usbserial, size_t usbseriallen,
-			char *usblpdev, size_t usblpdevlen)
+new_syspath(const char *devpath)
 {
-  struct usb_uri_map_entry *entry;
-  struct udev_device *dev;
-  const char *serial;
+  char *syspath;
   size_t syslen, devpathlen;
-  char *syspath, *devicefilepath;
-  const char *device_id = NULL;
-  char *usb_device_devpath;
-  char *usblpdevpos, *dest;
-  struct dirent **namelist;
-  int num_names;
-
-  id->full_device_id = id->mfg = id->mdl = id->sern = NULL;
-
   syslen = strlen ("/sys");
   devpathlen = strlen (devpath);
+
   syspath = malloc (syslen + devpathlen + 1);
   if (syspath == NULL)
     {
@@ -762,6 +748,17 @@ device_id_from_devpath (struct udev *udev, const char *devpath,
   memcpy (syspath, "/sys", syslen);
   memcpy (syspath + syslen, devpath, devpathlen);
   syspath[syslen + devpathlen] = '\0';
+  return syspath;
+}
+
+static char *
+new_devicefilepath (const char *syspath,
+                    const char *devpath)
+{
+  char *devicefilepath;
+  size_t syslen, devpathlen;
+  syslen = strlen ("/sys");
+  devpathlen = strlen (devpath);
 
   devicefilepath = malloc (syslen + devpathlen + 5);
   if (devicefilepath == NULL)
@@ -772,6 +769,31 @@ device_id_from_devpath (struct udev *udev, const char *devpath,
   memcpy (devicefilepath, syspath, syslen + devpathlen);
   memcpy (devicefilepath + syslen + devpathlen, "/usb", 4);
   devicefilepath[syslen + devpathlen + 4] = '\0';
+
+  return devicefilepath;
+}
+
+static char *
+device_id_from_devpath (struct udev *udev, const char *devpath,
+			const struct usb_uri_map *map,
+			struct device_id *id,
+			char *usbserial, size_t usbseriallen,
+			char *usblpdev, size_t usblpdevlen)
+{
+  struct usb_uri_map_entry *entry;
+  struct udev_device *dev;
+  const char *serial;
+  char *syspath, *devicefilepath;
+  const char *device_id = NULL;
+  char *usb_device_devpath;
+  char *usblpdevpos, *dest;
+  struct dirent **namelist;
+  int num_names;
+
+  id->full_device_id = id->mfg = id->mdl = id->sern = NULL;
+
+  syspath = new_syspath (devpath);
+  devicefilepath = new_devicefilepath (syspath, devpath);
 
   /* For devices under control of the usblp kernel module we read out the number
    * of the /dev/usb/lp* device file, as there can be queues set up with 
@@ -1627,39 +1649,58 @@ count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
   return count;
 }
 
+static struct udev_device *
+get_udev_device_from_devpath (const char *devpath)
+{
+  struct udev *udev = NULL;
+  struct udev_device *dev = NULL;
+  char *syspath = NULL;
+
+  syspath = new_syspath (devpath);
+  if (syspath == NULL)
+    goto cleanup;
+
+  udev = udev_new ();
+  if (udev == NULL)
+    goto cleanup;
+
+  dev = udev_device_new_from_syspath (udev, syspath);
+
+cleanup:
+  if (syspath != NULL)
+    free(syspath);
+  if (udev != NULL)
+    udev_unref (udev);
+
+  return dev;
+}
+
 static int
 is_ippusb_printer (struct udev_device *dev,
                    const char *usb_serial)
 {
-  const char *idVendorStr, *idProductStr;
+  const char *idVendorStr = NULL;
+  const char *idProductStr = NULL;
   unsigned long idVendor, idProduct;
   char *end;
   int conf_i = 0, numdevs = 0, dev_i;
-  libusb_device **list;
+  libusb_device **list = NULL;
   struct libusb_device_descriptor devdesc;
-
   char libusbserial[1024];
   int is_ippusb = 0;
 
   idVendorStr = udev_device_get_sysattr_value (dev, "idVendor");
   idProductStr = udev_device_get_sysattr_value (dev, "idProduct");
-
   if (!idVendorStr || !idProductStr)
-    {
-      return 0;
-    }
+    return 0;
 
   idVendor = strtoul (idVendorStr, &end, 16);
   if (end == idVendorStr)
-    {
-      return 0;
-    }
+    return 0;
 
   idProduct = strtoul (idProductStr, &end, 16);
   if (end == idProductStr)
-    {
-      return 0;
-    }
+    return 0;
 
   libusb_init (NULL);
   numdevs = libusb_get_device_list(NULL, &list);
@@ -1668,7 +1709,7 @@ is_ippusb_printer (struct udev_device *dev,
       struct libusb_device_handle *handle = NULL;
       struct libusb_device *device = list[dev_i];
 
-      if (libusb_get_device_descriptor(device, &devdesc) < 0)
+      if (libusb_get_device_descriptor (device, &devdesc) < 0)
         continue;
 
       if (!devdesc.bNumConfigurations ||
@@ -1680,14 +1721,14 @@ is_ippusb_printer (struct udev_device *dev,
 	  devdesc.idProduct != idProduct)
         continue;
 
-      if (libusb_open(device, &handle) < 0)
+      if (libusb_open (device, &handle) < 0)
         continue;
 
       if (usb_serial &&
-          (libusb_get_string_descriptor_ascii(handle,
-                                              devdesc.iSerialNumber,
-                                              (unsigned char *)libusbserial,
-                                              sizeof(libusbserial))) > 0 &&
+          (libusb_get_string_descriptor_ascii (handle,
+                                               devdesc.iSerialNumber,
+                                               (unsigned char *)libusbserial,
+                                               sizeof(libusbserial))) > 0 &&
           strcmp(usb_serial, libusbserial) != 0)
         {
           libusb_close (handle);
@@ -1697,21 +1738,21 @@ is_ippusb_printer (struct udev_device *dev,
       for (conf_i = 0; !is_ippusb && conf_i < devdesc.bNumConfigurations; conf_i ++)
         {
           struct libusb_config_descriptor *conf = NULL;
-          if (libusb_get_config_descriptor(device, conf_i, &conf) < 0)
+          if (libusb_get_config_descriptor (device, conf_i, &conf) < 0)
             continue;
 
-	  if (count_ippoverusb_interfaces(conf) > 0)
+	  if (count_ippoverusb_interfaces (conf) > 0)
             is_ippusb = 1;
 	}
 
-      libusb_close(handle);
+      libusb_close (handle);
 
       // Our Device has already been searched
       break;
     }
 
   libusb_free_device_list (list, 1);
-  libusb_exit(NULL);
+  libusb_exit (NULL);
 
   return is_ippusb;
 }
@@ -1753,7 +1794,6 @@ do_add (const char *cmd, const char *devaddr)
     usb_device_devpath = device_id_from_devpath (udev, devpath, map, &id,
 						 usbserial, sizeof (usbserial),
 						 usblpdev, sizeof (usblpdev));
-    g_free (devpath);
     udev_unref (udev);
   }
 
@@ -1763,17 +1803,33 @@ do_add (const char *cmd, const char *devaddr)
   syslog (LOG_DEBUG, "MFG:%s MDL:%s SERN:%s serial:%s", id.mfg, id.mdl,
 	  id.sern ? id.sern : "-", usbserial[0] ? usbserial : "-");
 
-  if (!is_bluetooth)
+  if (is_bluetooth)
     {
-      find_matching_device_uris (&id, usbserial, &device_uris, usb_device_devpath,
-				 map);
-      free (usb_device_devpath);
-    } else {
       char *device_uri;
 
       device_uri = uri_from_bdaddr (devpath);
       add_device_uri (&device_uris, device_uri);
       g_free (device_uri);
+    }
+  else
+    {
+      struct udev_device *dev;
+      dev = get_udev_device_from_devpath (devpath);
+
+      if (is_ippusb_driver_installed() &&
+          is_ippusb_printer(dev, usbserial))
+        {
+        }
+      else
+        {
+          find_matching_device_uris (&id, usbserial,
+	                             &device_uris, usb_device_devpath,
+                                     map);
+        }
+
+      free (usb_device_devpath);
+      g_free (devpath);
+      udev_device_unref (dev);
     }
 
   if (device_uris.n_uris == 0)
