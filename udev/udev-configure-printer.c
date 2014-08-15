@@ -1620,6 +1620,47 @@ is_ippusb_interface(const struct libusb_interface_descriptor *interf)
 }
 
 static int
+is_ippusb_uri(const char *uri)
+{
+  int pos = 0;
+  if (strncmp("http://localhost:", uri, 12))
+	  return -1;
+  pos += 12;
+
+  while (uri[pos] && isdigit(uri[pos]))
+    pos++;
+  if ('?' != uri[pos])
+    return -2;
+
+  if (strncmp("isippoverusb=true&serial=", uri + pos, 25))
+    return -3;
+  pos += 25;
+
+  while (uri[pos] && uri[pos] != '&')
+    pos++;
+  if ('&' != uri[pos])
+    return -4;
+
+  if (strnmp("vid=", uri + pos, 4))
+    return -5;
+
+  while (uri[pos] && isdigit(uri[pos]))
+    pos++;
+  if ('&' != uri[pos])
+    return -6;
+
+  if (strncmp("pid=", uri + pos, 4))
+    return -7;
+
+  while (uri[pos] && isdigit(uri[pos]))
+    pos++;
+  if (uri[pos] != '\0')
+    return -8;
+
+  return 1;
+}
+
+static int
 count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 {
   int count = 0;
