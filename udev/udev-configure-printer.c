@@ -1848,9 +1848,9 @@ new_ippusb_uri_string (struct udev_device *dev,
       syslog (LOG_ERR, "Failed to alloc string for ippusb mockup");
       exit (1);
     }
-      
+
   sprintf_size = snprintf (string, size,
-   "ipp://localhost:%u?isippoverusb=true&serial=%s&vid=%o&pid=%o",
+   "ipp://localhost:%u?isippoverusb=true&serial=%s&vid=%s&pid=%s",
    port,
    usb_serial,
    udev_device_get_sysattr_value (dev, "idVendor"),
@@ -1871,19 +1871,114 @@ new_mockup_ippusb_uri (struct udev_device *dev,
   return new_ippusb_uri_string(dev, usb_serial, 0);
 }
 
-static int
+static void
 find_ippusb_uri (struct udev_device *dev,
                  const char *usb_serial,
                  struct device_uris *uris,
                  struct usb_uri_map *map)
 {
+  char *mock_uri = new_mockup_ippusb_uri (dev, usb_serial);
+  add_device_uri (uris, mock_uri);
+}
+
+static int
+is_valid_serial (const char *serial)
+{
+  size_t i = 0;
+  while (serial[i] != '\0')
+    {
+      char ch = serial[i++];
+      if (!isdigit(ch) && !isalpha(ch))
+          return 0;
+    }
   return 1;
+}
+
+static int
+is_valid_int_id (const char *id)
+{
+  size_t i = 0;
+  while (id[i] != '\0')
+      if (!isdigit(id[i++]))
+          return 0;
+  return 1;
+}
+
+char *
+new_ippusb_call_str (const char *serial,
+                       const char *vid,
+		       const char *pid)
+{
+  size_t size = 0;
+  size_t sprintf_size = 0;
+  const char *vid_prefix = "ippusbxd -l -v ";
+  const char *pid_prefix = " -m ";
+  const char *serial_prefix = " -s ";
+  char *call = NULL;
+  size += strlen(vid_prefix);
+  size += strlen(vid);
+  size += strlen(pid_prefix);
+  size += strlen(pid);
+  size += strlen(serial_prefix);
+  size += strlen(serial);
+  size += 1; // \0
+
+  call = malloc(size * sizeof(*call));
+  if (call == NULL)
+    {
+      syslog (LOG_ERR, "Failed to alloc string for call");
+      exit (1);
+    }
+  sprintf_size = snprintf(call, size, "%s%s%s%s%s%s",
+   vid_prefix, vid,
+   pid_prefix, pid,
+   serial_prefix, serial);
+  if (sprintf_size != size)
+    {
+      syslog (LOG_ERR, "Failed to create call string");
+      exit(1);
+    }
+
+  return call;
 }
 
 static char *
 do_launch_ippusb_driver (struct udev_device *dev,
                          const char *usb_serial)
 {
+  unsigned int port = 0;
+  FILE *port_pipe;
+  int scan_status;
+  char *uri;
+  const char *vid = udev_device_get_sysattr_value (dev, "idVendor");
+  const char *pid = udev_device_get_sysattr_value (dev, "idProduct");
+
+  if (!is_valid_serial (usb_serial) ||
+      !is_valid_int_id (vid) ||
+      !is_valid_int_id (pid))
+    {
+      syslog (LOG_ERR, "Invalid params for usb device");
+      exit (1);
+    }
+
+  char *ippusbxd_call_str = new_ippusb_call_str(usb_serial, vid, pid);
+  port_pipe = popen(ippusbxd_call_str, "r");
+  if (port_pipe == NULL)
+    {
+      syslog (LOG_ERR, "Failed to run ippusb driver");
+      exit (1);
+    }
+  free(ippusbxd_call_str);
+
+   scan_status = fscanf(port_pipe, "%u\n", &port);
+   if (scan_status == EOF)
+     {
+      syslog (LOG_ERR, "Failed to read ippusb port");
+      exit (1);
+    }
+
+  uri = new_ippusb_uri_string(dev, usb_serial, port);
+  return uri;
 }
 
 static int
