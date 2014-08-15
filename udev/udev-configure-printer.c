@@ -1623,9 +1623,9 @@ static int
 is_ippusb_uri(const char *uri)
 {
   int pos = 0;
-  if (strncmp("http://localhost:", uri, 12))
+  if (strncmp("ipp://localhost:", uri, 16))
 	  return -1;
-  pos += 12;
+  pos += 16;
 
   while (uri[pos] && isdigit(uri[pos]))
     pos++;
@@ -1641,7 +1641,7 @@ is_ippusb_uri(const char *uri)
   if ('&' != uri[pos])
     return -4;
 
-  if (strnmp("vid=", uri + pos, 4))
+  if (strncmp("vid=", uri + pos, 4))
     return -5;
 
   while (uri[pos] && isdigit(uri[pos]))
@@ -1656,6 +1656,28 @@ is_ippusb_uri(const char *uri)
     pos++;
   if (uri[pos] != '\0')
     return -8;
+
+  return 1;
+}
+
+static int
+is_same_ippusb_uri(const char *uri, const char *uri2)
+{
+  int pos = 0;
+  int pos2 = 0;
+  // ipp://localhost:
+  if (strncmp(uri, uri2, 16))
+    return -1;
+  pos += 16;
+  pos2 += 16;
+
+  while (isdigit(uri[pos]))
+    pos++;
+  while (isdigit(uri2[pos2]))
+    pos2++;
+
+  if (strcmp(uri + pos, uri2 + pos2))
+    return -2;
 
   return 1;
 }
