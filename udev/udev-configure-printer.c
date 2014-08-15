@@ -2045,16 +2045,13 @@ do_add (const char *cmd, const char *devaddr)
         {
           find_ippusb_uri (dev, usbserial, &device_uris, map);
         }
-      else
-        {
-          find_matching_device_uris (&id, usbserial,
+      udev_device_unref (dev);
+
+      find_matching_device_uris (&id, usbserial,
 	                             &device_uris, usb_device_devpath,
                                      map);
-        }
 
       free (usb_device_devpath);
-      g_free (devpath);
-      udev_device_unref (dev);
     }
 
   if (device_uris.n_uris == 0)
@@ -2090,6 +2087,16 @@ do_add (const char *cmd, const char *devaddr)
 	    }
 	}
 
+      if (is_ippusb_uri (device_uris.uri[0]))
+        {
+          // launch the driver!
+          struct udev_device *dev;
+          dev = get_udev_device_from_devpath (devpath);
+
+	  free (device_uris.uri[0]);
+	  device_uris.uri[0] = do_launch_ippusb_driver(dev, usbserial);
+	}
+
       argv[0] = argv0;
       argv[1] = id.full_device_id;
       for (i = 0; i < device_uris.n_uris; i++)
@@ -2108,6 +2115,7 @@ do_add (const char *cmd, const char *devaddr)
       syslog (LOG_ERR, "Failed to execute %s", argv0);
     }
 
+  g_free (devpath);
   free_device_id (&id);
   free_device_uris (&device_uris);
   return 0;
