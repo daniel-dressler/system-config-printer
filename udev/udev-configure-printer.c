@@ -168,6 +168,7 @@ struct device_id
 /* Device URI schemes in decreasing order of preference. */
 static const char *device_uri_types[] =
   {
+    "ipp",
     "hp",
     "usb",
   };
@@ -1014,6 +1015,47 @@ is_ipp_uri (const char *uri)
 }
 
 static int
+is_ippusb_uri(const char *uri)
+{
+  int pos = 0;
+  if (strncmp("ipp://localhost:", uri, 16))
+	  return -1;
+  pos += 16;
+
+  while (uri[pos] && isdigit(uri[pos]))
+    pos++;
+  if ('?' != uri[pos])
+    return -2;
+
+  if (strncmp("isippoverusb=true&serial=", uri + pos, 25))
+    return -3;
+  pos += 25;
+
+  while (uri[pos] && uri[pos] != '&')
+    pos++;
+  if ('&' != uri[pos])
+    return -4;
+
+  if (strncmp("vid=", uri + pos, 4))
+    return -5;
+
+  while (uri[pos] && isdigit(uri[pos]))
+    pos++;
+  if ('&' != uri[pos])
+    return -6;
+
+  if (strncmp("pid=", uri + pos, 4))
+    return -7;
+
+  while (uri[pos] && isdigit(uri[pos]))
+    pos++;
+  if (uri[pos] != '\0')
+    return -8;
+
+  return 1;
+}
+
+static int
 find_matching_device_uris (struct device_id *id,
 			   const char *usbserial,
 			   struct device_uris *uris,
@@ -1033,7 +1075,6 @@ find_matching_device_uris (struct device_id *id,
     "dnssd",
     "http",
     "https",
-    "ipp",
     "lpd",
     "ncp",
     "parallel",
@@ -1115,6 +1156,10 @@ find_matching_device_uris (struct device_id *id,
 
       if (i == sizeof (device_uri_types) / sizeof (device_uri_types[0]))
 	/* Not what we want to match against.  Ignore this one. */
+	device_uri = NULL;
+
+      if (device_uri && !is_ippusb_uri (device_uri))
+	/* Was not an ipp uri we created */
 	device_uri = NULL;
 
       /* Now check the manufacturer and model names. */
@@ -1391,6 +1436,24 @@ for_each_matching_queue (struct device_uris *device_uris,
 
   if (cups == NULL)
     return 0;
+  /*const char *cur_printer_ippusb_uri = NULL; */
+  /* If our printer is ipp over usb
+   * capable we'll have a uri
+   * to compare against when looking
+   * for matching queues */
+  /*for (i = 0; i < uris->n_uris; i++)
+    {
+      if (is_ippusb_uri (uris->uris[i]))
+        {
+          cur_printer_ippusb_uri = uris->uris[i];
+	  break;
+	}
+    }
+  i = 0;
+  */
+
+
+
 
   request = ippNewRequest (CUPS_GET_PRINTERS);
   ippAddStrings (request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
@@ -1623,47 +1686,6 @@ is_ippusb_interface(const struct libusb_interface_descriptor *interf)
   return interf->bInterfaceClass == 0x07 &&
          interf->bInterfaceSubClass == 0x01 &&
          interf->bInterfaceProtocol == 0x04;
-}
-
-static int
-is_ippusb_uri(const char *uri)
-{
-  int pos = 0;
-  if (strncmp("ipp://localhost:", uri, 16))
-	  return -1;
-  pos += 16;
-
-  while (uri[pos] && isdigit(uri[pos]))
-    pos++;
-  if ('?' != uri[pos])
-    return -2;
-
-  if (strncmp("isippoverusb=true&serial=", uri + pos, 25))
-    return -3;
-  pos += 25;
-
-  while (uri[pos] && uri[pos] != '&')
-    pos++;
-  if ('&' != uri[pos])
-    return -4;
-
-  if (strncmp("vid=", uri + pos, 4))
-    return -5;
-
-  while (uri[pos] && isdigit(uri[pos]))
-    pos++;
-  if ('&' != uri[pos])
-    return -6;
-
-  if (strncmp("pid=", uri + pos, 4))
-    return -7;
-
-  while (uri[pos] && isdigit(uri[pos]))
-    pos++;
-  if (uri[pos] != '\0')
-    return -8;
-
-  return 1;
 }
 
 static int
