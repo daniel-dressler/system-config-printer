@@ -1828,6 +1828,49 @@ is_ippusb_printer (struct udev_device *dev,
   return is_ippusb;
 }
 
+static char *
+new_ippusb_uri_string (struct udev_device *dev,
+                       const char *usb_serial,
+		       unsigned int port)
+{
+  char *string = NULL;
+  size_t size = 0;
+  size_t sprintf_size = 0;
+  size += strlen ("ipp://localhost:?isippoverusb=true&serial=");
+  size += 20; // max digits in a port
+  size += strlen (usb_serial);
+  size += 9; // &vid=xxxx
+  size += 9; // &pid=xxxx
+  size += 1; // \0
+  string = malloc (size * sizeof(*string));
+  if (string == NULL)
+    {
+      syslog (LOG_ERR, "Failed to alloc string for ippusb mockup");
+      exit (1);
+    }
+      
+  sprintf_size = snprintf (string, size,
+   "ipp://localhost:%u?isippoverusb=true&serial=%s&vid=%o&pid=%o",
+   port,
+   usb_serial,
+   udev_device_get_sysattr_value (dev, "idVendor"),
+   udev_device_get_sysattr_value (dev, "idProduct"));
+  if (sprintf_size != size)
+    {
+      syslog (LOG_ERR, "Failed to generate ippusb mockup");
+      exit (1);
+    }
+
+  return string;
+}
+
+static char *
+new_mockup_ippusb_uri (struct udev_device *dev,
+                       const char *usb_serial)
+{
+  return new_ippusb_uri_string(dev, usb_serial, 0);
+}
+
 static int
 find_ippusb_uri (struct udev_device *dev,
                  const char *usb_serial,
@@ -1835,6 +1878,12 @@ find_ippusb_uri (struct udev_device *dev,
                  struct usb_uri_map *map)
 {
   return 1;
+}
+
+static char *
+do_launch_ippusb_driver (struct udev_device *dev,
+                         const char *usb_serial)
+{
 }
 
 static int
