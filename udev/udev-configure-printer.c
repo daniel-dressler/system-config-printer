@@ -1008,6 +1008,12 @@ cupsDoRequestOrDie (http_t *http,
 }
 
 static int
+is_ipp_uri (const char *uri)
+{
+  return strncmp("ipp://", uri, 6) == 0;
+}
+
+static int
 find_matching_device_uris (struct device_id *id,
 			   const char *usbserial,
 			   struct device_uris *uris,
@@ -1671,11 +1677,13 @@ is_same_ippusb_uri(const char *uri, const char *uri2)
   pos += 16;
   pos2 += 16;
 
+  // Skip port numbers
   while (isdigit(uri[pos]))
     pos++;
   while (isdigit(uri2[pos2]))
     pos2++;
 
+  // Check serial, vendor id, and product id
   if (strcmp(uri + pos, uri2 + pos2))
     return -2;
 
