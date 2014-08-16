@@ -1436,24 +1436,6 @@ for_each_matching_queue (struct device_uris *device_uris,
 
   if (cups == NULL)
     return 0;
-  /*const char *cur_printer_ippusb_uri = NULL; */
-  /* If our printer is ipp over usb
-   * capable we'll have a uri
-   * to compare against when looking
-   * for matching queues */
-  /*for (i = 0; i < uris->n_uris; i++)
-    {
-      if (is_ippusb_uri (uris->uris[i]))
-        {
-          cur_printer_ippusb_uri = uris->uris[i];
-	  break;
-	}
-    }
-  i = 0;
-  */
-
-
-
 
   request = ippNewRequest (CUPS_GET_PRINTERS);
   ippAddStrings (request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
@@ -1538,55 +1520,74 @@ for_each_matching_queue (struct device_uris *device_uris,
       ps1 = strstr (this_device_uri, "serial=");
       for (i = 0; i < device_uris->n_uris; i++)
 	{
-	  device_uri_n = normalize_device_uri(device_uris->uri[i]);
-	  /* As for the same device different URIs can come out when the
-	     device is accessed via the usblp kernel module or via low-
-	     level USB (libusb) we cannot simply compare URIs, must
-	     consider also URIs as equal if one has an "interface"
-	     or "serial" attribute and the other not. If both have
-	     the attribute it must naturally match. We check which attributes
-             are there and this way determine up to which length the two URIs
-             must match. Here we can assume that if a URI has an "interface"
-	     attribute it has also a "serial" attribute, as this URI is
-	     an URI obtained via libusb and these always have a "serial"
-	     attribute. usblp-based URIs never have an "interface"
-	     attribute.*/
-	  pi2 = strstr (device_uris->uri[i], "interface=");
-	  ps2 = strstr (device_uris->uri[i], "serial=");
-	  if (pi1 && !pi2)
-	    l = strlen(device_uris->uri[i]);
-	  else if (!pi1 && pi2)
-	    l = strlen(this_device_uri);
-	  else if (ps1 && !ps2)
-	    l = strlen(device_uris->uri[i]);
-	  else if (!ps1 && ps2)
-	    l = strlen(this_device_uri);
-	  else if (strlen(this_device_uri) > strlen(device_uris->uri[i]))
-	    l = strlen(this_device_uri);
-	  else
-	    l = strlen(device_uris->uri[i]);
-	  if (firstqueue == 1)
+          int does_match = 0;
+	  if (is_ippusb_uri (device_uris->uri[i]) ||
+              is_ippusb_uri (this_device_uri))
 	    {
-	      syslog (LOG_DEBUG, "URI of detected printer: %s, normalized: %s",
+              does_match = is_same_ippusb_uri (device_uris->uri[i],
+                                               this_device_uri);
+              /* IPP over USB must be
+	       * readded each time to
+	       * update the port num */
+	    }
+	  else {
+	    device_uri_n = normalize_device_uri(device_uris->uri[i]);
+	    /* As for the same device different URIs can come out when the
+	       device is accessed via the usblp kernel module or via low-
+	       level USB (libusb) we cannot simply compare URIs, must
+	       consider also URIs as equal if one has an "interface"
+	       or "serial" attribute and the other not. If both have
+	       the attribute it must naturally match. We check which attributes
+               are there and this way determine up to which length the two URIs
+               must match. Here we can assume that if a URI has an "interface"
+	       attribute it has also a "serial" attribute, as this URI is
+	       an URI obtained via libusb and these always have a "serial"
+	       attribute. usblp-based URIs never have an "interface"
+	       attribute.*/
+	    pi2 = strstr (device_uris->uri[i], "interface=");
+	    ps2 = strstr (device_uris->uri[i], "serial=");
+	    if (pi1 && !pi2)
+	      l = strlen(device_uris->uri[i]);
+	    else if (!pi1 && pi2)
+	      l = strlen(this_device_uri);
+	    else if (ps1 && !ps2)
+	      l = strlen(device_uris->uri[i]);
+	    else if (!ps1 && ps2)
+	      l = strlen(this_device_uri);
+	    else if (strlen(this_device_uri) > strlen(device_uris->uri[i]))
+	      l = strlen(this_device_uri);
+	    else
+	      l = strlen(device_uris->uri[i]);
+	    if (firstqueue == 1)
+	      {
+	        syslog (LOG_DEBUG, "URI of detected printer: %s, normalized: %s",
 		      device_uris->uri[i], device_uri_n);
-	      if (i == 0 && strlen(usblpdev) > 0)
+	        if (i == 0 && strlen(usblpdev) > 0)
 		syslog (LOG_DEBUG,
 			"Consider also queues with \"%s\" or \"%s\" in their URIs as matching",
 			usblpdevstr1, usblpdevstr2);
+	      }
+
+	      does_match =
+	        (!strncmp (device_uris->uri[i], this_device_uri, l)) ||
+	         (strstr (device_uri_n, this_device_uri_n) ==
+	          device_uri_n) ||
+	         (strstr (this_device_uri_n, device_uri_n) ==
+	          this_device_uri_n) ||
+	         ((strlen(usblpdev) > 0) &&
+	          ((strstr (this_device_uri, usblpdevstr1) != NULL) ||
+	          (strstr (this_device_uri, usblpdevstr2) != NULL)));
+
+	      if (does_match)
+	        matched++;
 	    }
+
 	  if (i == 0)
 	    syslog (LOG_DEBUG, "URI of print queue: %s, normalized: %s",
-		    this_device_uri, this_device_uri_n);
-	  if ((!strncmp (device_uris->uri[i], this_device_uri, l)) ||
-	      (strstr (device_uri_n, this_device_uri_n) ==
-	       device_uri_n) ||
-	      (strstr (this_device_uri_n, device_uri_n) ==
-	       this_device_uri_n) ||
-	      ((strlen(usblpdev) > 0) &&
-	       ((strstr (this_device_uri, usblpdevstr1) != NULL) ||
-	       (strstr (this_device_uri, usblpdevstr2) != NULL))))
+              this_device_uri, this_device_uri_n);
+
+	  if (does_match)
 	    {
-	      matched++;
 	      syslog (LOG_DEBUG, "Queue %s has matching device URI",
 		      this_printer_uri);
 	      if (((flags & MATCH_ONLY_DISABLED) &&
