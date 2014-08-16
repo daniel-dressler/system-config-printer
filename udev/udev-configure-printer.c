@@ -1411,6 +1411,30 @@ normalize_device_uri(const char *str_orig)
   return str;
 }
 
+static int
+is_same_ippusb_uri(const char *uri, const char *uri2)
+{
+  int pos = 0;
+  int pos2 = 0;
+  // ipp://localhost:
+  if (strncmp(uri, uri2, 16))
+    return -1;
+  pos += 16;
+  pos2 += 16;
+
+  // Skip port numbers
+  while (isdigit(uri[pos]))
+    pos++;
+  while (isdigit(uri2[pos2]))
+    pos2++;
+
+  // Check serial, vendor id, and product id
+  if (strcmp(uri + pos, uri2 + pos2))
+    return -2;
+
+  return 1;
+}
+
 /* Call a function for each queue with the given device-uri and printer-state.
  * Returns the number of queues with a matching device-uri. */
 static size_t
@@ -1687,30 +1711,6 @@ is_ippusb_interface(const struct libusb_interface_descriptor *interf)
   return interf->bInterfaceClass == 0x07 &&
          interf->bInterfaceSubClass == 0x01 &&
          interf->bInterfaceProtocol == 0x04;
-}
-
-static int
-is_same_ippusb_uri(const char *uri, const char *uri2)
-{
-  int pos = 0;
-  int pos2 = 0;
-  // ipp://localhost:
-  if (strncmp(uri, uri2, 16))
-    return -1;
-  pos += 16;
-  pos2 += 16;
-
-  // Skip port numbers
-  while (isdigit(uri[pos]))
-    pos++;
-  while (isdigit(uri2[pos2]))
-    pos2++;
-
-  // Check serial, vendor id, and product id
-  if (strcmp(uri + pos, uri2 + pos2))
-    return -2;
-
-  return 1;
 }
 
 static int
