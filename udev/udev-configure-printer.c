@@ -1711,15 +1711,17 @@ static int
 count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 {
   int count = 0;
+  uint8_t interface_i;
 
-  for (uint8_t interface_i = 0;
+  for (interface_i = 0;
        interface_i < config->bNumInterfaces;
        interface_i++)
     {
+      int alt_i;
       const struct libusb_interface *interface = NULL;
       interface = &config->interface[interface_i];
 
-      for (int alt_i = 0;
+      for (alt_i = 0;
            alt_i < interface->num_altsetting;
            alt_i++)
         {
