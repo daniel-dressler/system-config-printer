@@ -1152,7 +1152,7 @@ find_matching_device_uris (struct device_id *id,
 	/* Not what we want to match against.  Ignore this one. */
 	device_uri = NULL;
 
-      if (device_uri && !is_ippusb_uri (device_uri))
+      if (device_uri && is_ippusb_uri (device_uri) > 0)
 	/* Was not an ipp uri we created */
 	device_uri = NULL;
 
@@ -1539,8 +1539,8 @@ for_each_matching_queue (struct device_uris *device_uris,
       for (i = 0; i < device_uris->n_uris; i++)
 	{
           int does_match = 0;
-	  if (is_ippusb_uri (device_uris->uri[i]) ||
-              is_ippusb_uri (this_device_uri))
+	  if (is_ippusb_uri (device_uris->uri[i]) > 0 ||
+              is_ippusb_uri (this_device_uri) > 0)
 	    {
               does_match = is_same_ippusb_uri (device_uris->uri[i],
                                                this_device_uri);
@@ -1728,7 +1728,7 @@ count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
           const struct libusb_interface_descriptor *alt = NULL;
           alt = &interface->altsetting[alt_i];
 
-          if (!is_ippusb_interface (alt))
+          if (is_ippusb_interface (alt) > 0)
             continue;
 
           count++;
@@ -1979,6 +1979,7 @@ do_launch_ippusb_driver (struct udev_device *dev,
       syslog (LOG_ERR, "Invalid params for usb device");
       exit (1);
     }
+     syslog (LOG_ERR, "DAN: vid, pid, and serial were valid");
 
   char *ippusbxd_call_str = new_ippusb_call_str(usb_serial, vid, pid);
   port_pipe = popen(ippusbxd_call_str, "r");
@@ -2015,6 +2016,7 @@ do_add (const char *cmd, const char *devaddr)
 
   syslog (LOG_DEBUG, "add %s", devaddr);
 
+      syslog (LOG_ERR, "DAN: YUP stuff is working here");
   is_bluetooth = bluetooth_verify_address (devaddr);
 
   map = read_usb_uri_map ();
@@ -2039,12 +2041,14 @@ do_add (const char *cmd, const char *devaddr)
 						 usblpdev, sizeof (usblpdev));
     udev_unref (udev);
   }
+      syslog (LOG_ERR, "DAN: 1");
 
   if (!id.mfg || !id.mdl)
     return 1;
 
   syslog (LOG_DEBUG, "MFG:%s MDL:%s SERN:%s serial:%s", id.mfg, id.mdl,
 	  id.sern ? id.sern : "-", usbserial[0] ? usbserial : "-");
+      syslog (LOG_ERR, "DAN: 2");
 
   if (is_bluetooth)
     {
@@ -2059,11 +2063,15 @@ do_add (const char *cmd, const char *devaddr)
       struct udev_device *dev;
       dev = get_udev_device_from_devpath (devpath);
 
-      if (is_ippusb_driver_installed() &&
-          is_ippusb_printer(dev, usbserial))
+      if (is_ippusb_driver_installed() > 0 &&
+          is_ippusb_printer(dev, usbserial) > 0)
         {
+      syslog (LOG_ERR, "DAN: finding ippusb uris");
           find_ippusb_uri (dev, usbserial, &device_uris, map);
         }
+      else {
+      syslog (LOG_ERR, "DAN: is not ippusb?!");
+      }
       udev_device_unref (dev);
 
       find_matching_device_uris (&id, usbserial,
@@ -2073,12 +2081,14 @@ do_add (const char *cmd, const char *devaddr)
       free (usb_device_devpath);
     }
 
+      syslog (LOG_ERR, "DAN: 3");
   if (device_uris.n_uris == 0)
     {
       syslog (LOG_ERR, "no corresponding CUPS device found");
       free_device_id (&id);
       return 0;
     }
+      syslog (LOG_ERR, "DAN: 4");
 
   /* Re-enable any queues we'd previously disabled. */
   if (for_each_matching_queue (&device_uris, MATCH_ONLY_DISABLED,
@@ -2106,8 +2116,9 @@ do_add (const char *cmd, const char *devaddr)
 	    }
 	}
 
-      if (is_ippusb_uri (device_uris.uri[0]))
+      if (is_ippusb_uri (device_uris.uri[0]) > 0)
         {
+      syslog (LOG_ERR, "DAN: launching ippusbxd");
           // launch the driver!
           struct udev_device *dev;
           dev = get_udev_device_from_devpath (devpath);
