@@ -1009,12 +1009,6 @@ cupsDoRequestOrDie (http_t *http,
 }
 
 static int
-is_ipp_uri (const char *uri)
-{
-  return strncmp("ipp://", uri, 6) == 0;
-}
-
-static int
 is_ippusb_uri(const char *uri)
 {
   int pos = 0;
