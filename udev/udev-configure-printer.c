@@ -2033,7 +2033,7 @@ new_ippusb_call_str (const char *serial,
    vid_prefix, vid,
    pid_prefix, pid,
    serial_prefix, serial);
-  if (sprintf_size != size)
+  if (sprintf_size >= size)
     {
       syslog (LOG_ERR, "Failed to create call string");
       exit(1);
