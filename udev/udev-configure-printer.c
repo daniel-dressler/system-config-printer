@@ -1835,6 +1835,11 @@ is_ippusb_printer (struct udev_device *dev,
   char libusbserial[1024];
   int is_ippusb = 0;
 
+  if (dev == NULL)
+    {
+      syslog (LOG_ERR, "No device was given");
+      exit (1);
+    }
      syslog (LOG_ERR, "DAN: 2.1");
 
   get_vidpid_from_parents(dev, &idVendorStr, &idProductStr);
@@ -2143,6 +2148,12 @@ do_add (const char *cmd, const char *devaddr)
     {
       struct udev_device *dev;
       dev = get_udev_device_from_devpath (devpath);
+      if (dev == NULL)
+        {
+          syslog (LOG_ERR, "failed to get device from devpath");
+	  exit (1);
+	}
+      syslog (LOG_ERR, "DAN: dev was not null");
 
       syslog (LOG_ERR, "DAN: is installed %d, is ippusb %d", is_ippusb_driver_installed(),
           is_ippusb_printer(dev, usbserial));
