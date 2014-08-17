@@ -1071,7 +1071,7 @@ is_ippusb_uri(const char *uri)
 
   while (uri[pos] && isdigit(uri[pos]))
     pos++;
-  if ('?' != uri[pos])
+  if ('?' != uri[pos++])
     return -2;
 
   if (strncmp("isippoverusb=true&serial=", uri + pos, 25))
@@ -1080,21 +1080,21 @@ is_ippusb_uri(const char *uri)
 
   while (uri[pos] && uri[pos] != '&')
     pos++;
-  if ('&' != uri[pos])
+  if ('&' != uri[pos++])
     return -4;
 
   if (strncmp("vid=", uri + pos, 4))
     return -5;
 
-  while (uri[pos] && isdigit(uri[pos]))
+  while (uri[pos] && uri[pos] != '&')
     pos++;
-  if ('&' != uri[pos])
+  if ('&' != uri[pos++])
     return -6;
 
   if (strncmp("pid=", uri + pos, 4))
     return -7;
 
-  while (uri[pos] && isdigit(uri[pos]))
+  while (uri[pos] && uri[pos] != '&')
     pos++;
   if (uri[pos] != '\0')
     return -8;
@@ -2220,6 +2220,7 @@ do_add (const char *cmd, const char *devaddr)
 	    }
 	}
 
+      syslog (LOG_ERR, "DAN: final uri test %d", is_ippusb_uri (device_uris.uri[0]));
       if (is_ippusb_uri (device_uris.uri[0]) > 0)
         {
       syslog (LOG_ERR, "DAN: launching ippusbxd");
