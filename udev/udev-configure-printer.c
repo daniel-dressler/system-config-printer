@@ -827,6 +827,8 @@ device_id_from_devpath (struct udev *udev, const char *devpath,
       syslog (LOG_ERR, "unable to access %s", syspath);
       return NULL;
     }
+	get_ieee1284_id_using_libusb (dev, "bal");
+ // is_ippusb_printer(dev, "blah");
 
   usb_device_devpath = strdup (udev_device_get_devpath (dev));
   syslog (LOG_DEBUG, "device devpath is %s", usb_device_devpath);
@@ -1006,6 +1008,12 @@ cupsDoRequestOrDie (http_t *http,
     }
 
   return answer;
+}
+
+static int
+is_ipp_uri (const char *uri)
+{
+  return strncmp (uri, "ipp://", 6) == 0;
 }
 
 static int
@@ -1533,6 +1541,12 @@ for_each_matching_queue (struct device_uris *device_uris,
 	   for this printer (shouldn't happen). */
 	goto skip;
 
+      if (is_ipp_uri(this_device_uri) > 0 && is_ippusb_uri(this_device_uri) <= 0)
+      {
+     syslog (LOG_ERR, "DAN: skipping non-ippusb ipp uri");
+        goto skip;
+      }
+
       this_device_uri_n = normalize_device_uri(this_device_uri);
       pi1 = strstr (this_device_uri, "interface=");
       ps1 = strstr (this_device_uri, "serial=");
@@ -1542,49 +1556,51 @@ for_each_matching_queue (struct device_uris *device_uris,
 	  if (is_ippusb_uri (device_uris->uri[i]) > 0 ||
               is_ippusb_uri (this_device_uri) > 0)
 	    {
+     syslog (LOG_ERR, "DAN: checking if its the same ippusb printer");
               does_match = is_same_ippusb_uri (device_uris->uri[i],
                                                this_device_uri);
               /* IPP over USB must be
 	       * readded each time to
 	       * update the port num */
 	    }
-	  else {
-	    device_uri_n = normalize_device_uri(device_uris->uri[i]);
-	    /* As for the same device different URIs can come out when the
-	       device is accessed via the usblp kernel module or via low-
-	       level USB (libusb) we cannot simply compare URIs, must
-	       consider also URIs as equal if one has an "interface"
-	       or "serial" attribute and the other not. If both have
-	       the attribute it must naturally match. We check which attributes
-               are there and this way determine up to which length the two URIs
-               must match. Here we can assume that if a URI has an "interface"
-	       attribute it has also a "serial" attribute, as this URI is
-	       an URI obtained via libusb and these always have a "serial"
-	       attribute. usblp-based URIs never have an "interface"
-	       attribute.*/
-	    pi2 = strstr (device_uris->uri[i], "interface=");
-	    ps2 = strstr (device_uris->uri[i], "serial=");
-	    if (pi1 && !pi2)
-	      l = strlen(device_uris->uri[i]);
-	    else if (!pi1 && pi2)
-	      l = strlen(this_device_uri);
-	    else if (ps1 && !ps2)
-	      l = strlen(device_uris->uri[i]);
-	    else if (!ps1 && ps2)
-	      l = strlen(this_device_uri);
-	    else if (strlen(this_device_uri) > strlen(device_uris->uri[i]))
-	      l = strlen(this_device_uri);
-	    else
-	      l = strlen(device_uris->uri[i]);
-	    if (firstqueue == 1)
-	      {
-	        syslog (LOG_DEBUG, "URI of detected printer: %s, normalized: %s",
-		      device_uris->uri[i], device_uri_n);
-	        if (i == 0 && strlen(usblpdev) > 0)
-		syslog (LOG_DEBUG,
-			"Consider also queues with \"%s\" or \"%s\" in their URIs as matching",
-			usblpdevstr1, usblpdevstr2);
-	      }
+	  else
+            {
+	      device_uri_n = normalize_device_uri(device_uris->uri[i]);
+	      /* As for the same device different URIs can come out when the
+	         device is accessed via the usblp kernel module or via low-
+	         level USB (libusb) we cannot simply compare URIs, must
+	         consider also URIs as equal if one has an "interface"
+	         or "serial" attribute and the other not. If both have
+	         the attribute it must naturally match. We check which attributes
+                 are there and this way determine up to which length the two URIs
+                 must match. Here we can assume that if a URI has an "interface"
+	         attribute it has also a "serial" attribute, as this URI is
+	         an URI obtained via libusb and these always have a "serial"
+	         attribute. usblp-based URIs never have an "interface"
+	         attribute.*/
+	      pi2 = strstr (device_uris->uri[i], "interface=");
+	      ps2 = strstr (device_uris->uri[i], "serial=");
+	      if (pi1 && !pi2)
+	        l = strlen(device_uris->uri[i]);
+	      else if (!pi1 && pi2)
+	        l = strlen(this_device_uri);
+	      else if (ps1 && !ps2)
+	        l = strlen(device_uris->uri[i]);
+	      else if (!ps1 && ps2)
+	        l = strlen(this_device_uri);
+	      else if (strlen(this_device_uri) > strlen(device_uris->uri[i]))
+	        l = strlen(this_device_uri);
+	      else
+	        l = strlen(device_uris->uri[i]);
+	      if (firstqueue == 1)
+	        {
+	          syslog (LOG_DEBUG, "URI of detected printer: %s, normalized: %s",
+	                device_uris->uri[i], device_uri_n);
+	          if (i == 0 && strlen(usblpdev) > 0)
+	          syslog (LOG_DEBUG,
+	          	"Consider also queues with \"%s\" or \"%s\" in their URIs as matching",
+	          	usblpdevstr1, usblpdevstr2);
+	        }
 
 	      does_match =
 	        (!strncmp (device_uris->uri[i], this_device_uri, l)) ||
@@ -1754,6 +1770,7 @@ get_udev_device_from_devpath (const char *devpath)
   if (udev == NULL)
     goto cleanup;
 
+  syslog (LOG_ERR, "DAN: our syspath is %s", syspath);
   dev = udev_device_new_from_syspath (udev, syspath);
 
 cleanup:
@@ -1779,18 +1796,28 @@ is_ippusb_printer (struct udev_device *dev,
   char libusbserial[1024];
   int is_ippusb = 0;
 
+     syslog (LOG_ERR, "DAN: 2.1");
+
   idVendorStr = udev_device_get_sysattr_value (dev, "idVendor");
   idProductStr = udev_device_get_sysattr_value (dev, "idProduct");
   if (!idVendorStr || !idProductStr)
-    return 0;
+    {
+      syslog (LOG_ERR, "Missing sysattr %s",
+	      idVendorStr ?
+	      (idProductStr ? "serial" : "idProduct") : "idVendor");
+      return 0;
+    }
 
+     syslog (LOG_ERR, "DAN: 2.2");
   idVendor = strtoul (idVendorStr, &end, 16);
   if (end == idVendorStr)
     return 0;
+     syslog (LOG_ERR, "DAN: 2.3");
 
   idProduct = strtoul (idProductStr, &end, 16);
   if (end == idProductStr)
     return 0;
+     syslog (LOG_ERR, "DAN: 2.4");
 
   libusb_init (NULL);
   numdevs = libusb_get_device_list(NULL, &list);
@@ -1801,18 +1828,22 @@ is_ippusb_printer (struct udev_device *dev,
 
       if (libusb_get_device_descriptor (device, &devdesc) < 0)
         continue;
+     syslog (LOG_ERR, "DAN: 2.5");
 
       if (!devdesc.bNumConfigurations ||
           !devdesc.idVendor ||
 	  !devdesc.idProduct)
         continue;
+     syslog (LOG_ERR, "DAN: 2.6");
 
       if (devdesc.idVendor != idVendor ||
 	  devdesc.idProduct != idProduct)
         continue;
+     syslog (LOG_ERR, "DAN: 2.7");
 
       if (libusb_open (device, &handle) < 0)
         continue;
+     syslog (LOG_ERR, "DAN: 2.8");
 
       if (usb_serial &&
           (libusb_get_string_descriptor_ascii (handle,
@@ -1824,6 +1855,7 @@ is_ippusb_printer (struct udev_device *dev,
           libusb_close (handle);
           continue;
         }
+     syslog (LOG_ERR, "DAN: 2.9");
 
       for (conf_i = 0; !is_ippusb && conf_i < devdesc.bNumConfigurations; conf_i ++)
         {
@@ -1840,6 +1872,7 @@ is_ippusb_printer (struct udev_device *dev,
       // Our Device has already been searched
       break;
     }
+     syslog (LOG_ERR, "DAN: 2.4");
 
   libusb_free_device_list (list, 1);
   libusb_exit (NULL);
@@ -1971,6 +2004,7 @@ do_launch_ippusb_driver (struct udev_device *dev,
   char *uri;
   const char *vid = udev_device_get_sysattr_value (dev, "idVendor");
   const char *pid = udev_device_get_sysattr_value (dev, "idProduct");
+     syslog (LOG_ERR, "DAN: testing validitlty");
 
   if (!is_valid_serial (usb_serial) ||
       !is_valid_int_id (vid) ||
@@ -2063,6 +2097,8 @@ do_add (const char *cmd, const char *devaddr)
       struct udev_device *dev;
       dev = get_udev_device_from_devpath (devpath);
 
+      syslog (LOG_ERR, "DAN: is installed %d, is ippusb %d", is_ippusb_driver_installed(),
+          is_ippusb_printer(dev, usbserial));
       if (is_ippusb_driver_installed() > 0 &&
           is_ippusb_printer(dev, usbserial) > 0)
         {
@@ -2071,6 +2107,8 @@ do_add (const char *cmd, const char *devaddr)
         }
       else {
       syslog (LOG_ERR, "DAN: is not ippusb?!");
+	get_ieee1284_id_using_libusb (dev, usbserial);
+      exit(0);
       }
       udev_device_unref (dev);
 
@@ -2125,12 +2163,16 @@ do_add (const char *cmd, const char *devaddr)
 
 	  free (device_uris.uri[0]);
 	  device_uris.uri[0] = do_launch_ippusb_driver(dev, usbserial);
+      syslog (LOG_ERR, "DAN: launched ippusbxd");
 	}
 
       argv[0] = argv0;
       argv[1] = id.full_device_id;
       for (i = 0; i < device_uris.n_uris; i++)
+      {
 	argv[i + 2] = device_uris.uri[i];
+      syslog (LOG_DEBUG, "DAN: queue %s", argv[i + 2]);
+      }
       argv[i + 2] = NULL;
 
       syslog (LOG_DEBUG, "About to add queue for %s", argv[2]);
