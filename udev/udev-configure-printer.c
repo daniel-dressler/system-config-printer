@@ -1992,7 +1992,7 @@ find_ippusb_uri (struct udev_device *dev,
 }
 
 static int
-is_valid_serial (const char *serial)
+is_only_alphanum (const char *serial)
 {
   size_t i = 0;
   while (serial[i] != '\0')
@@ -2001,16 +2001,6 @@ is_valid_serial (const char *serial)
       if (!isdigit(ch) && !isalpha(ch))
           return 0;
     }
-  return 1;
-}
-
-static int
-is_valid_int_id (const char *id)
-{
-  size_t i = 0;
-  while (id[i] != '\0')
-      if (!isdigit(id[i++]))
-          return 0;
   return 1;
 }
 
@@ -2066,9 +2056,9 @@ do_launch_ippusb_driver (struct udev_device *dev,
      syslog (LOG_ERR, "DAN: testing validitlty");
 
   if (!vid || !pid ||
-      !is_valid_serial (usb_serial) ||
-      !is_valid_int_id (vid) ||
-      !is_valid_int_id (pid))
+      !is_only_alphanum (usb_serial) ||
+      !is_only_alphanum (vid) ||
+      !is_only_alphanum (pid))
     {
       syslog (LOG_ERR, "Invalid params for usb device");
       exit (1);
