@@ -532,7 +532,10 @@ get_vidpid_from_parents (struct udev_device *child,
 		       const char **vid, const char **pid)
 {
   struct udev_device *parent = child;
+  struct udev *udev = udev_new();
 
+  // TODO: find issue with udev host
+  parent = udev_device_new_from_syspath (udev, "/sys/devices/pci0000:00/0000:00:12.2/usb1/1-5/1-5:1.1");
   while (parent != NULL)
     {
       const char *maybe_vid = NULL;
@@ -547,6 +550,7 @@ get_vidpid_from_parents (struct udev_device *child,
       if (!maybe_vid && !maybe_pid)
         {
           syslog (LOG_ERR, "DAN: recursing");
+          //parent = udev_device_get_parent (parent);
           parent = udev_device_get_parent (parent);
           syslog (LOG_ERR, "DAN: recursded");
 	  continue;
@@ -866,8 +870,10 @@ device_id_from_devpath (struct udev *udev, const char *devpath,
       syslog (LOG_ERR, "unable to access %s", syspath);
       return NULL;
     }
+      syslog (LOG_ERR, "DAN: will we crash?!");
+     dev = udev_device_get_parent (dev);
+      syslog (LOG_ERR, "DAN: nope?!");
 	get_ieee1284_id_using_libusb (dev, "bal");
- // is_ippusb_printer(dev, "blah");
 
   usb_device_devpath = strdup (udev_device_get_devpath (dev));
   syslog (LOG_DEBUG, "device devpath is %s", usb_device_devpath);
@@ -1959,7 +1965,8 @@ new_ippusb_uri_string (struct udev_device *dev,
    port, usb_serial, vid, pid);
   if (sprintf_size != size)
     {
-      syslog (LOG_ERR, "Failed to generate ippusb mockup");
+      syslog (LOG_ERR, "Failed to generate ippusb mockup, %lu vs %lu",
+		      sprintf_size, size);
       exit (1);
     }
 
