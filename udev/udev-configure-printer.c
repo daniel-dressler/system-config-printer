@@ -2066,6 +2066,7 @@ do_launch_ippusb_driver (struct udev_device *dev,
      syslog (LOG_ERR, "DAN: vid, pid, and serial were valid");
 
   char *ippusbxd_call_str = new_ippusb_call_str(usb_serial, vid, pid);
+     syslog (LOG_ERR, "DAN: calling %s", ippusbxd_call_str);
   port_pipe = popen(ippusbxd_call_str, "r");
   if (port_pipe == NULL)
     {
@@ -2075,13 +2076,15 @@ do_launch_ippusb_driver (struct udev_device *dev,
   free(ippusbxd_call_str);
 
    scan_status = fscanf(port_pipe, "%u\n", &port);
-   if (scan_status == EOF)
-     {
+  if (scan_status == EOF)
+    {
       syslog (LOG_ERR, "Failed to read ippusb port");
       exit (1);
     }
 
+   syslog (LOG_ERR, "DAN: port = %d", port);
   uri = new_ippusb_uri_string(dev, usb_serial, port);
+   syslog (LOG_ERR, "DAN: new uri = %s", uri);
   return uri;
 }
 
