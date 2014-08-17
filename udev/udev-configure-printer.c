@@ -527,6 +527,44 @@ device_file_filter(const struct dirent *entry)
   return ((strstr(entry->d_name, "lp") != NULL) ? 1 : 0);
 }
 
+static void
+get_vidpid_from_child (struct udev_device *child,
+		       const char **vid, const char **pid)
+{
+  struct udev_device *parent = child;
+
+  while (parent != NULL)
+    {
+      const char *maybe_vid = NULL;
+      const char *maybe_pid = NULL;
+          syslog (LOG_ERR, "DAN: enum search 1");
+
+      maybe_vid = udev_device_get_sysattr_value (parent, "idVendor");
+      maybe_pid = udev_device_get_sysattr_value (parent, "idProduct");
+
+      if (!maybe_vid && !maybe_pid)
+        {
+          parent = udev_device_get_parent (parent);
+	  continue;
+	}
+      else if (!maybe_vid || !maybe_pid)
+        {
+          syslog (LOG_ERR, "Printer does not have vid, pid, serial");
+          exit(1);
+        }
+          syslog (LOG_ERR, "DAN: enum search 2, found vid & pid");
+
+      *vid = maybe_vid;
+      *pid = maybe_pid;
+      break;
+    }
+
+  udev_device_unref (child);
+  return;
+}
+
+
+
 static char *
 get_ieee1284_id_from_child (struct udev *udev, struct udev_device *parent)
 {
@@ -1798,8 +1836,7 @@ is_ippusb_printer (struct udev_device *dev,
 
      syslog (LOG_ERR, "DAN: 2.1");
 
-  idVendorStr = udev_device_get_sysattr_value (dev, "idVendor");
-  idProductStr = udev_device_get_sysattr_value (dev, "idProduct");
+  get_vidpid_from_child(dev, &idVendorStr, &idProductStr);
   if (!idVendorStr || !idProductStr)
     {
       syslog (LOG_ERR, "Missing sysattr %s",
