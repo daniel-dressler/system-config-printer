@@ -1963,9 +1963,9 @@ new_ippusb_uri_string (struct udev_device *dev,
   sprintf_size = snprintf (string, size,
    "ipp://localhost:%u?isippoverusb=true&serial=%s&vid=%s&pid=%s",
    port, usb_serial, vid, pid);
-  if (sprintf_size != size)
+  if (sprintf_size >= size)
     {
-      syslog (LOG_ERR, "Failed to generate ippusb mockup, %lu vs %lu",
+      syslog (LOG_ERR, "Failed to generate ippusb uri str, %lu vs %lu",
 		      sprintf_size, size);
       exit (1);
     }
@@ -1987,6 +1987,7 @@ find_ippusb_uri (struct udev_device *dev,
                  struct usb_uri_map *map)
 {
   char *mock_uri = new_mockup_ippusb_uri (dev, usb_serial);
+  syslog (LOG_ERR, "DAN: adding %s mock uri", mock_uri);
   add_device_uri (uris, mock_uri);
 }
 
@@ -2154,6 +2155,10 @@ do_add (const char *cmd, const char *devaddr)
   else
     {
       struct udev_device *dev;
+      find_matching_device_uris (&id, usbserial,
+	                             &device_uris, usb_device_devpath,
+                                     map);
+
       dev = get_udev_device_from_devpath (devpath);
       if (dev == NULL)
         {
@@ -2176,10 +2181,6 @@ do_add (const char *cmd, const char *devaddr)
       exit(0);
       }
       udev_device_unref (dev);
-
-      find_matching_device_uris (&id, usbserial,
-	                             &device_uris, usb_device_devpath,
-                                     map);
 
       free (usb_device_devpath);
     }
