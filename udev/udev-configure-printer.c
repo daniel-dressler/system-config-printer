@@ -534,8 +534,6 @@ get_vidpid_from_parents (struct udev_device *child,
   struct udev_device *parent = child;
   struct udev *udev = udev_new();
 
-  // TODO: find issue with udev host
-  parent = udev_device_new_from_syspath (udev, "/sys/devices/pci0000:00/0000:00:12.2/usb1/1-5/1-5:1.1");
   while (parent != NULL)
     {
       const char *maybe_vid = NULL;
@@ -2237,13 +2235,13 @@ do_add (const char *cmd, const char *devaddr)
 
       syslog (LOG_DEBUG, "About to add queue for %s", argv[2]);
       strcpy (argv0, cmd);
-      syslog (LOG_DEBUG, "DAN: argv0 %s", argv0);
-      syslog (LOG_DEBUG, "DAN: cmd %s", cmd);
       p = strrchr (argv0, '/');
       if (p++ == NULL)
 	p = argv0;
 
       strcpy (p, "udev-add-printer");
+      syslog (LOG_DEBUG, "DAN: argv0 %s", argv0);
+      syslog (LOG_DEBUG, "DAN: cmd %s", cmd);
 
       execv (argv0, argv);
       syslog (LOG_ERR, "Failed to execute %s", argv0);
