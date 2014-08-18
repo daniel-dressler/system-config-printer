@@ -98,12 +98,14 @@ def add_queue (device_id, device_uris, fax_basename=False):
     fax_basename: False if this is not a fax queue, else name prefix
     """
 
+    syslog (LOG_ERR, "DAN: WORKING in python")
     id_dict = cupshelpers.parseDeviceID (device_id)
     if id_dict["MFG"].lower () in MFG_BLACKLIST:
         syslog (LOG_DEBUG, "Ignoring blacklisted manufacturer %s", id_dict["MFG"])
         return
 
     syslog (LOG_DEBUG, "add_queue: URIs=%s" % device_uris)
+    syslog (LOG_ERR, "DAN: add_queue: URIs=%s" % device_uris)
     installer = None
     if fax_basename != False:
         notification = None
@@ -227,6 +229,7 @@ if len (sys.argv) < 3:
    sys.exit (1)
 
 openlog ("udev-add-printer", 0, LOG_LPR)
+syslog (LOG_ERR, "DAN: HERE WORKING in python")
 try:
     add_queue (sys.argv[1], sys.argv[2:])
 except SystemExit as e:

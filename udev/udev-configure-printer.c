@@ -870,10 +870,6 @@ device_id_from_devpath (struct udev *udev, const char *devpath,
       syslog (LOG_ERR, "unable to access %s", syspath);
       return NULL;
     }
-      syslog (LOG_ERR, "DAN: will we crash?!");
-     dev = udev_device_get_parent (dev);
-      syslog (LOG_ERR, "DAN: nope?!");
-	get_ieee1284_id_using_libusb (dev, "bal");
 
   usb_device_devpath = strdup (udev_device_get_devpath (dev));
   syslog (LOG_DEBUG, "device devpath is %s", usb_device_devpath);
@@ -2052,6 +2048,7 @@ do_launch_ippusb_driver (struct udev_device *dev,
   char *uri;
   const char *vid;
   const char *pid;
+  char ch;
   get_vidpid_from_parents (dev, &vid, &pid);
      syslog (LOG_ERR, "DAN: testing validitlty");
 
@@ -2074,8 +2071,11 @@ do_launch_ippusb_driver (struct udev_device *dev,
       exit (1);
     }
   free(ippusbxd_call_str);
+   syslog (LOG_ERR, "DAN: launched now waiting");
 
-   scan_status = fscanf(port_pipe, "%u\n", &port);
+  //scan_status = fscanf(port_pipe, "%s ", &ippusbxd_call_str);
+  //syslog (LOG_ERR, "DAN: string %s", ippusbxd_call_str);
+  scan_status = fscanf(port_pipe, "%u|", &port);
   if (scan_status == EOF)
     {
       syslog (LOG_ERR, "Failed to read ippusb port");
@@ -2170,8 +2170,6 @@ do_add (const char *cmd, const char *devaddr)
         }
       else {
       syslog (LOG_ERR, "DAN: is not ippusb?!");
-	get_ieee1284_id_using_libusb (dev, usbserial);
-      exit(0);
       }
       udev_device_unref (dev);
 
@@ -2228,6 +2226,8 @@ do_add (const char *cmd, const char *devaddr)
 
       argv[0] = argv0;
       argv[1] = id.full_device_id;
+      syslog (LOG_DEBUG, "DAN: argv0 %s", argv[0]);
+      syslog (LOG_DEBUG, "DAN: full device id %s", argv[1]);
       for (i = 0; i < device_uris.n_uris; i++)
       {
 	argv[i + 2] = device_uris.uri[i];
@@ -2237,6 +2237,8 @@ do_add (const char *cmd, const char *devaddr)
 
       syslog (LOG_DEBUG, "About to add queue for %s", argv[2]);
       strcpy (argv0, cmd);
+      syslog (LOG_DEBUG, "DAN: argv0 %s", argv0);
+      syslog (LOG_DEBUG, "DAN: cmd %s", cmd);
       p = strrchr (argv0, '/');
       if (p++ == NULL)
 	p = argv0;
