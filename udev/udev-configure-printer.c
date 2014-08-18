@@ -532,7 +532,6 @@ get_vidpid_from_parents (struct udev_device *child,
 		       const char **vid, const char **pid)
 {
   struct udev_device *parent = child;
-  struct udev *udev = udev_new();
 
   while (parent != NULL)
     {
@@ -1795,18 +1794,14 @@ count_ippoverusb_interfaces(struct libusb_config_descriptor *config)
 }
 
 static struct udev_device *
-get_udev_device_from_devpath (const char *devpath)
+get_udev_device_from_devpath (struct udev *udev,
+                              const char *devpath)
 {
-  struct udev *udev = NULL;
   struct udev_device *dev = NULL;
   char *syspath = NULL;
 
   syspath = new_syspath (devpath);
   if (syspath == NULL)
-    goto cleanup;
-
-  udev = udev_new ();
-  if (udev == NULL)
     goto cleanup;
 
   syslog (LOG_ERR, "DAN: our syspath is %s", syspath);
@@ -1815,8 +1810,6 @@ get_udev_device_from_devpath (const char *devpath)
 cleanup:
   if (syspath != NULL)
     free(syspath);
-  if (udev != NULL)
-    udev_unref (udev);
 
   return dev;
 }
@@ -2092,7 +2085,7 @@ do_add (const char *cmd, const char *devaddr)
   struct device_id id;
   struct device_uris device_uris;
   struct usb_uri_map *map;
-  struct udev *udev;
+  struct udev *udev = NULL;
   char *devpath = NULL;
   char *usb_device_devpath = NULL;
   char usbserial[256];
@@ -2124,7 +2117,6 @@ do_add (const char *cmd, const char *devaddr)
     usb_device_devpath = device_id_from_devpath (udev, devpath, map, &id,
 						 usbserial, sizeof (usbserial),
 						 usblpdev, sizeof (usblpdev));
-    udev_unref (udev);
   }
       syslog (LOG_ERR, "DAN: 1");
 
@@ -2150,7 +2142,7 @@ do_add (const char *cmd, const char *devaddr)
 	                             &device_uris, usb_device_devpath,
                                      map);
 
-      dev = get_udev_device_from_devpath (devpath);
+      dev = get_udev_device_from_devpath (udev, devpath);
       if (dev == NULL)
         {
           syslog (LOG_ERR, "failed to get device from devpath");
@@ -2215,12 +2207,14 @@ do_add (const char *cmd, const char *devaddr)
       syslog (LOG_ERR, "DAN: launching ippusbxd");
           // launch the driver!
           struct udev_device *dev;
-          dev = get_udev_device_from_devpath (devpath);
+          dev = get_udev_device_from_devpath (udev, devpath);
 
 	  free (device_uris.uri[0]);
 	  device_uris.uri[0] = do_launch_ippusb_driver(dev, usbserial);
       syslog (LOG_ERR, "DAN: launched ippusbxd");
 	}
+      if (udev != NULL)
+        udev_unref (udev);
 
       argv[0] = argv0;
       argv[1] = id.full_device_id;
@@ -2247,6 +2241,8 @@ do_add (const char *cmd, const char *devaddr)
       syslog (LOG_ERR, "Failed to execute %s", argv0);
     }
 
+  if (udev != NULL)
+    udev_unref (udev);
   g_free (devpath);
   free_device_id (&id);
   free_device_uris (&device_uris);
