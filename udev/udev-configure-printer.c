@@ -540,21 +540,15 @@ get_vidpidserial_from_parents (struct udev_device *child,
       const char *maybe_vid = NULL;
       const char *maybe_pid = NULL;
       const char *maybe_serial = NULL;
-          syslog (LOG_ERR, "DAN: enum search 1");
 
       maybe_vid = udev_device_get_sysattr_value (parent, "idVendor");
-          syslog (LOG_ERR, "DAN: enum search 1.01");
       maybe_pid = udev_device_get_sysattr_value (parent, "idProduct");
-          syslog (LOG_ERR, "DAN: enum search 1.1");
       maybe_serial = udev_device_get_sysattr_value (parent, "serial");
-          syslog (LOG_ERR, "DAN: enum search 1.3");
 
       if (!maybe_vid && !maybe_pid && !maybe_serial)
         {
-          syslog (LOG_ERR, "DAN: recursing");
           //parent = udev_device_get_parent (parent);
           parent = udev_device_get_parent (parent);
-          syslog (LOG_ERR, "DAN: recursded");
 	  continue;
 	}
       else if (!maybe_vid || !maybe_pid || !maybe_serial)
@@ -562,7 +556,6 @@ get_vidpidserial_from_parents (struct udev_device *child,
           syslog (LOG_ERR, "Printer does not have vid, pid, and serial");
           exit(1);
         }
-          syslog (LOG_ERR, "DAN: enum search 2, found vid & pid");
 
       *vid = strdup (maybe_vid);
       *pid = strdup (maybe_pid);
@@ -1587,7 +1580,6 @@ for_each_matching_queue (struct device_uris *device_uris,
 
       if (is_ipp_uri(this_device_uri) > 0 && is_ippusb_uri(this_device_uri) <= 0)
       {
-     syslog (LOG_ERR, "DAN: skipping non-ippusb ipp uri");
         goto skip;
       }
 
@@ -1600,7 +1592,6 @@ for_each_matching_queue (struct device_uris *device_uris,
 	  if (is_ippusb_uri (device_uris->uri[i]) > 0 ||
               is_ippusb_uri (this_device_uri) > 0)
 	    {
-     syslog (LOG_ERR, "DAN: checking if its the same ippusb printer");
               does_match = is_same_ippusb_uri (device_uris->uri[i],
                                                this_device_uri);
               /* IPP over USB must be
@@ -1810,7 +1801,6 @@ get_udev_device_from_devpath (struct udev *udev,
   if (syspath == NULL)
     goto cleanup;
 
-  syslog (LOG_ERR, "DAN: our syspath is %s", syspath);
   dev = udev_device_new_from_syspath (udev, syspath);
 
 cleanup:
@@ -1839,7 +1829,6 @@ is_ippusb_printer (struct udev_device *dev)
       syslog (LOG_ERR, "No device was given");
       exit (1);
     }
-     syslog (LOG_ERR, "DAN: 2.1");
 
   get_vidpidserial_from_parents(dev, &idVendorStr, &idProductStr, &serial);
   if (!idVendorStr || !idProductStr || !serial)
@@ -1850,17 +1839,13 @@ is_ippusb_printer (struct udev_device *dev)
       return 0;
     }
 
-     syslog (LOG_ERR, "DAN: 2.2");
-     syslog (LOG_ERR, "DAN: vid = %s", idVendorStr);
   idVendor = strtoul (idVendorStr, &end, 16);
   if (end == idVendorStr)
     return 0;
-     syslog (LOG_ERR, "DAN: 2.3");
 
   idProduct = strtoul (idProductStr, &end, 16);
   if (end == idProductStr)
     return 0;
-     syslog (LOG_ERR, "DAN: 2.4");
 
   libusb_init (NULL);
   numdevs = libusb_get_device_list(NULL, &list);
@@ -1871,22 +1856,18 @@ is_ippusb_printer (struct udev_device *dev)
 
       if (libusb_get_device_descriptor (device, &devdesc) < 0)
         continue;
-     syslog (LOG_ERR, "DAN: 2.5");
 
       if (!devdesc.bNumConfigurations ||
           !devdesc.idVendor ||
 	  !devdesc.idProduct)
         continue;
-     syslog (LOG_ERR, "DAN: 2.6");
 
       if (devdesc.idVendor != idVendor ||
 	  devdesc.idProduct != idProduct)
         continue;
-     syslog (LOG_ERR, "DAN: 2.7");
 
       if (libusb_open (device, &handle) < 0)
         continue;
-     syslog (LOG_ERR, "DAN: 2.8");
 
       if ((libusb_get_string_descriptor_ascii (handle,
                                                devdesc.iSerialNumber,
@@ -1894,11 +1875,9 @@ is_ippusb_printer (struct udev_device *dev)
                                                sizeof(libusbserial))) > 0 &&
           strcmp(serial, libusbserial) != 0)
         {
-          syslog (LOG_ERR, "DAN: setial %s is not %s", serial, libusbserial);
           libusb_close (handle);
           continue;
         }
-     syslog (LOG_ERR, "DAN: 2.9");
 
       for (conf_i = 0; !is_ippusb && conf_i < devdesc.bNumConfigurations; conf_i ++)
         {
@@ -1915,7 +1894,6 @@ is_ippusb_printer (struct udev_device *dev)
       // Our Device has already been searched
       break;
     }
-     syslog (LOG_ERR, "DAN: 2.4");
 
   libusb_free_device_list (list, 1);
   libusb_exit (NULL);
@@ -1976,7 +1954,6 @@ find_ippusb_uri (struct udev_device *dev,
                  struct usb_uri_map *map)
 {
   char *mock_uri = new_mockup_ippusb_uri (dev);
-  syslog (LOG_ERR, "DAN: adding %s mock uri", mock_uri);
   add_device_uri (uris, mock_uri);
 }
 
@@ -2042,7 +2019,6 @@ do_launch_ippusb_driver (struct udev_device *dev)
   const char *pid;
   const char *serial;
   get_vidpidserial_from_parents (dev, &vid, &pid, &serial);
-     syslog (LOG_ERR, "DAN: testing validitlty");
 
   if (!vid || !pid || !serial ||
       !is_only_alphanum (serial) ||
@@ -2052,10 +2028,8 @@ do_launch_ippusb_driver (struct udev_device *dev)
       syslog (LOG_ERR, "Invalid params for usb device");
       exit (1);
     }
-     syslog (LOG_ERR, "DAN: vid, pid, and serial were valid");
 
   char *ippusbxd_call_str = new_ippusb_call_str(serial, vid, pid);
-     syslog (LOG_ERR, "DAN: calling %s", ippusbxd_call_str);
   port_pipe = popen(ippusbxd_call_str, "r");
   if (port_pipe == NULL)
     {
@@ -2063,10 +2037,7 @@ do_launch_ippusb_driver (struct udev_device *dev)
       exit (1);
     }
   free(ippusbxd_call_str);
-   syslog (LOG_ERR, "DAN: launched now waiting");
 
-  //scan_status = fscanf(port_pipe, "%s ", &ippusbxd_call_str);
-  //syslog (LOG_ERR, "DAN: string %s", ippusbxd_call_str);
   scan_status = fscanf(port_pipe, "%u|", &port);
   if (scan_status != 1)
     {
@@ -2074,9 +2045,7 @@ do_launch_ippusb_driver (struct udev_device *dev)
       exit (1);
     }
 
-   syslog (LOG_ERR, "DAN: port = %d", port);
   uri = new_ippusb_uri_string(dev, port);
-   syslog (LOG_ERR, "DAN: new uri = %s", uri);
   return uri;
 }
 
@@ -2095,7 +2064,6 @@ do_add (const char *cmd, const char *devaddr)
 
   syslog (LOG_DEBUG, "add %s", devaddr);
 
-      syslog (LOG_ERR, "DAN: YUP stuff is working here");
   is_bluetooth = bluetooth_verify_address (devaddr);
 
   map = read_usb_uri_map ();
@@ -2119,14 +2087,12 @@ do_add (const char *cmd, const char *devaddr)
 						 usbserial, sizeof (usbserial),
 						 usblpdev, sizeof (usblpdev));
   }
-      syslog (LOG_ERR, "DAN: 1");
 
   if (!id.mfg || !id.mdl)
     return 1;
 
   syslog (LOG_DEBUG, "MFG:%s MDL:%s SERN:%s serial:%s", id.mfg, id.mdl,
 	  id.sern ? id.sern : "-", usbserial[0] ? usbserial : "-");
-      syslog (LOG_ERR, "DAN: 2");
 
   if (is_bluetooth)
     {
@@ -2149,32 +2115,23 @@ do_add (const char *cmd, const char *devaddr)
           syslog (LOG_ERR, "failed to get device from devpath");
 	  exit (1);
 	}
-      syslog (LOG_ERR, "DAN: dev was not null");
 
-      syslog (LOG_ERR, "DAN: is installed %d, is ippusb %d", is_ippusb_driver_installed(),
-          is_ippusb_printer(dev));
       if (is_ippusb_driver_installed() > 0 &&
           is_ippusb_printer(dev) > 0)
         {
-      syslog (LOG_ERR, "DAN: finding ippusb uris");
           find_ippusb_uri (dev, &device_uris, map);
         }
-      else {
-      syslog (LOG_ERR, "DAN: is not ippusb?!");
-      }
-      udev_device_unref (dev);
 
+      udev_device_unref (dev);
       free (usb_device_devpath);
     }
 
-      syslog (LOG_ERR, "DAN: 3");
   if (device_uris.n_uris == 0)
     {
       syslog (LOG_ERR, "no corresponding CUPS device found");
       free_device_id (&id);
       return 0;
     }
-      syslog (LOG_ERR, "DAN: 4");
 
   /* Re-enable any queues we'd previously disabled. */
   if (for_each_matching_queue (&device_uris, MATCH_ONLY_DISABLED,
@@ -2202,29 +2159,23 @@ do_add (const char *cmd, const char *devaddr)
 	    }
 	}
 
-      syslog (LOG_ERR, "DAN: final uri test %d", is_ippusb_uri (device_uris.uri[0]));
       if (is_ippusb_uri (device_uris.uri[0]) > 0)
         {
-      syslog (LOG_ERR, "DAN: launching ippusbxd");
           // launch the driver!
           struct udev_device *dev;
           dev = get_udev_device_from_devpath (udev, devpath);
 
 	  free (device_uris.uri[0]);
 	  device_uris.uri[0] = do_launch_ippusb_driver(dev);
-      syslog (LOG_ERR, "DAN: launched ippusbxd");
 	}
       if (udev != NULL)
         udev_unref (udev);
 
       argv[0] = argv0;
       argv[1] = id.full_device_id;
-      syslog (LOG_DEBUG, "DAN: argv0 %s", argv[0]);
-      syslog (LOG_DEBUG, "DAN: full device id %s", argv[1]);
       for (i = 0; i < device_uris.n_uris; i++)
       {
 	argv[i + 2] = device_uris.uri[i];
-      syslog (LOG_DEBUG, "DAN: queue %s", argv[i + 2]);
       }
       argv[i + 2] = NULL;
 
@@ -2235,8 +2186,6 @@ do_add (const char *cmd, const char *devaddr)
 	p = argv0;
 
       strcpy (p, "udev-add-printer");
-      syslog (LOG_DEBUG, "DAN: argv0 %s", argv0);
-      syslog (LOG_DEBUG, "DAN: cmd %s", cmd);
 
       execv (argv0, argv);
       syslog (LOG_ERR, "Failed to execute %s", argv0);
