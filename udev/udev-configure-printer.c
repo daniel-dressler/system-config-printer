@@ -1632,9 +1632,9 @@ for_each_matching_queue (struct device_uris *device_uris,
 	          syslog (LOG_DEBUG, "URI of detected printer: %s, normalized: %s",
 	                device_uris->uri[i], device_uri_n);
 	          if (i == 0 && strlen(usblpdev) > 0)
-	          syslog (LOG_DEBUG,
-	          	"Consider also queues with \"%s\" or \"%s\" in their URIs as matching",
-	          	usblpdevstr1, usblpdevstr2);
+	            syslog (LOG_DEBUG,
+	             "Consider also queues with \"%s\" or \"%s\" in their URIs as matching",
+	             usblpdevstr1, usblpdevstr2);
 	        }
 
 	      does_match =
