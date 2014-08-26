@@ -1061,12 +1061,13 @@ is_ippusb_uri(const char *uri)
 	  return -1;
   pos += 16;
 
+  while (uri[pos] && isdigit(uri[pos]))
+    pos++;
+
   if (strncmp("/ipp/print", uri + pos, 10))
     return -2;
   pos += 10;
 
-  while (uri[pos] && isdigit(uri[pos]))
-    pos++;
   if ('?' != uri[pos++])
     return -3;
 
@@ -2043,9 +2044,9 @@ do_launch_ippusb_driver (struct udev_device *dev)
   free(ippusbxd_call_str);
 
   scan_status = fscanf(port_pipe, "%u|", &port);
-  if (scan_status != 1)
+  if (scan_status != 1 || port == 0)
     {
-      syslog (LOG_ERR, "Failed to read ippusb port");
+      syslog (LOG_ERR, "Failed to read ippusb port (%d)", scan_status);
       exit (1);
     }
 
