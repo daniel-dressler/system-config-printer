@@ -1061,35 +1061,39 @@ is_ippusb_uri(const char *uri)
 	  return -1;
   pos += 16;
 
+  if (strncmp("/ipp/print", uri + pos, 10))
+    return -2;
+  pos += 10;
+
   while (uri[pos] && isdigit(uri[pos]))
     pos++;
   if ('?' != uri[pos++])
-    return -2;
+    return -3;
 
   if (strncmp("isippoverusb=true&serial=", uri + pos, 25))
-    return -3;
+    return -4;
   pos += 25;
 
   while (uri[pos] && uri[pos] != '&')
     pos++;
   if ('&' != uri[pos++])
-    return -4;
+    return -5;
 
   if (strncmp("vid=", uri + pos, 4))
-    return -5;
+    return -6;
 
   while (uri[pos] && uri[pos] != '&')
     pos++;
   if ('&' != uri[pos++])
-    return -6;
+    return -7;
 
   if (strncmp("pid=", uri + pos, 4))
-    return -7;
+    return -8;
 
   while (uri[pos] && uri[pos] != '&')
     pos++;
   if (uri[pos] != '\0')
-    return -8;
+    return -9;
 
   return 1;
 }
@@ -1916,7 +1920,7 @@ new_ippusb_uri_string (struct udev_device *dev,
       exit (1);
     }
 
-  size += strlen ("ipp://localhost:?isippoverusb=true&serial=");
+  size += strlen ("ipp://localhost:/ipp/print?isippoverusb=true&serial=");
   size += 20; // max digits in a port
   size += strlen (serial);
   size += 5 + strlen (vid); // &vid=xxxx
@@ -1930,7 +1934,7 @@ new_ippusb_uri_string (struct udev_device *dev,
     }
 
   sprintf_size = snprintf (string, size,
-   "ipp://localhost:%u?isippoverusb=true&serial=%s&vid=%s&pid=%s",
+   "ipp://localhost:%u/ipp/print?isippoverusb=true&serial=%s&vid=%s&pid=%s",
    port, serial, vid, pid);
   if (sprintf_size >= size)
     {
