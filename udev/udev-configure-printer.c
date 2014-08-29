@@ -188,6 +188,13 @@ device_uri_type (const char *uri)
 }
 
 static void
+zero_device_uris (struct device_uris *uris)
+{
+  uris->n_uris = 0;
+  uris->uri = NULL;
+}
+
+static void
 add_device_uri (struct device_uris *uris,
 		const char *uri)
 {
@@ -1128,8 +1135,8 @@ find_matching_device_uris (struct device_id *id,
     "socket",
   };
 
-  uris->n_uris = uris_noserial.n_uris = all_uris.n_uris = 0;
-  uris->uri = uris_noserial.uri = all_uris.uri = NULL;
+  zero_device_uris (&uris_noserial);
+  zero_device_uris (&all_uris);
 
   /* Leave the bus to settle. */
   sleep (1);
@@ -1202,7 +1209,8 @@ find_matching_device_uris (struct device_id *id,
 	/* Not what we want to match against.  Ignore this one. */
 	device_uri = NULL;
 
-      if (device_uri && is_ippusb_uri (device_uri) > 0)
+      if (device_uri && is_ipp_uri (device_uri)     > 0 &&
+                        is_ippusb_uri (device_uri) <= 0)
 	/* Was not an ipp uri we created */
 	device_uri = NULL;
 
@@ -1594,10 +1602,11 @@ for_each_matching_queue (struct device_uris *device_uris,
       for (i = 0; i < device_uris->n_uris; i++)
 	{
           int does_match = 0;
+
 	  if (is_ippusb_uri (device_uris->uri[i]) > 0 ||
               is_ippusb_uri (this_device_uri) > 0)
 	    {
-              does_match = is_same_ippusb_uri (device_uris->uri[i],
+              does_match = 0 < is_same_ippusb_uri (device_uris->uri[i],
                                                this_device_uri);
               /* IPP over USB must be
 	       * readded each time to
@@ -2067,6 +2076,8 @@ do_add (const char *cmd, const char *devaddr)
   char usblpdev[8] = "";
   gboolean is_bluetooth;
 
+  zero_device_uris (&device_uris);
+
   syslog (LOG_DEBUG, "add %s", devaddr);
 
   is_bluetooth = bluetooth_verify_address (devaddr);
@@ -2110,10 +2121,8 @@ do_add (const char *cmd, const char *devaddr)
   else
     {
       struct udev_device *dev;
-      find_matching_device_uris (&id, usbserial,
-	                             &device_uris, usb_device_devpath,
-                                     map);
 
+      /* Find IPPUSB uris */
       dev = get_udev_device_from_devpath (udev, devpath);
       if (dev == NULL)
         {
@@ -2126,8 +2135,13 @@ do_add (const char *cmd, const char *devaddr)
         {
           find_ippusb_uri (dev, &device_uris, map);
         }
-
       udev_device_unref (dev);
+
+      /* Find HP & USB uris */
+      find_matching_device_uris (&id, usbserial,
+	                             &device_uris, usb_device_devpath,
+                                     map);
+
       free (usb_device_devpath);
     }
 
