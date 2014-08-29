@@ -820,6 +820,14 @@ new_devicefilepath (const char *syspath,
   return devicefilepath;
 }
 
+static int
+is_related_devpath (const char *parent_devpath, const char *child_devpath)
+{
+	size_t len = strlen (parent_devpath);
+	int status = strncmp (parent_devpath, child_devpath, len);
+	return status == 0;
+}
+
 static char *
 device_id_from_devpath (struct udev *udev, const char *devpath,
 			const struct usb_uri_map *map,
@@ -2323,7 +2331,7 @@ do_remove (const char *devaddr)
   prev = &map->entries;
   for (entry = map->entries; entry; entry = entry->next)
     {
-      if (!strcmp (entry->devpath, devpath))
+      if (is_related_devpath (devpath, entry->devpath))
 	{
 	  uris = &entry->uris;
 	  break;
