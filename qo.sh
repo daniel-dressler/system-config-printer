@@ -3,6 +3,7 @@ mkdir ../test/
 cp -R ./* ../test/
 cd ../test
 rm -f ../test/udev/.*
+rm -f ../test/cupshelpers/.*
 rm -f ../test/udev/*.o
 rm -f ../test/udev/udev-configure-printer
 rm -f ../test/qo.sh

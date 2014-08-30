@@ -32,6 +32,21 @@ MFG_BLACKLIST=[
     "graphtec",
     ]
 
+def is_ipp_uri (uri):
+    return uri.startswith('ipp://')
+
+def is_ippusb_uri (uri):
+    return '/ipp/print?isippoverusb=true&' in uri
+
+def get_ippusb_uri_params (uri):
+    params_i = uri.find('/ipp/print?isippusboverusb=true&')
+    if params_i < 0:
+        return ""
+    return uri[params_i:]
+
+def is_same_ippusb_printer (uri1, uri2):
+    return get_ippusb_uri_params(uri1) == get_ippusb_uri_params(uri2)
+
 def create_queue (c, printers, name, device_uri, ppdname, info, installer):
     # Make sure the name is unique.
     namel = str (name.lower ())
@@ -44,6 +59,14 @@ def create_queue (c, printers, name, device_uri, ppdname, info, installer):
                 ((suffix == 1 and printer.name.lower () == namel) or
                  (suffix > 1 and
                   printer.name.lower () == namel + "-" + str (suffix)))):
+
+                # ippusbxd needs the queue's uri to be modified
+                uri = printer.device_uri;
+                if (is_ipp_uri (uri)        and is_ippusb_uri (uri) and
+                    is_ipp_uri (device_uri) and is_ippusb_uri (device_uri) and
+                     is_same_ippusb_printer (uri, device_uri)):
+                    break
+
                 unique = False
                 break
 
